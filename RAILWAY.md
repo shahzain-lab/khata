@@ -163,7 +163,8 @@ Local builds need Docker BuildKit (`DOCKER_BUILDKIT=1`).
 | UI calls wrong API | Set `API_BASE_URL` on **web** to the public API HTTPS URL and redeploy web |
 | CORS errors | Set `ALLOWED_ORIGINS` on **api** to the exact web origin (https, no trailing slash) |
 | Empty orgs / login fails | Run seed (section 5) |
-| Build killed / OOM | Use registry images or larger builder (section above) |
+| Build killed / OOM | Use a larger Railway builder, or build images in CI and deploy from a registry |
+| `Cache mounts MUST...` / bind mount errors | Fixed in Dockerfiles (Railway does not support `RUN --mount=type=bind`). Redeploy latest `main`. |
 | Insecure secrets refuse start | Set strong unique JWT / session secrets (`DEMO=false` + production) |
 
 ---

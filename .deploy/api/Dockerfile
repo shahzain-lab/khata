@@ -115,27 +115,9 @@ COPY --chown=node:node .scripts/postinstall.js ./.scripts/
 # patch (string[] relations/select types + runtime shim) is never applied, breaking the build.
 COPY --chown=node:node patches ./patches
 
-# VERDACCIO_TOKEN arrives as a BuildKit secret (optional; absent file → private registry
-# skipped). Registry rewrite, install and .npmrc/.yarnrc cleanup happen in ONE RUN so the
-# token never persists in any layer.
+# Public npm install (no BuildKit secrets — Railway does not wire VERDACCIO secrets by default)
 ARG VERDACCIO_REGISTRY=""
-RUN --mount=type=secret,id=VERDACCIO_TOKEN,uid=1000 \
-    VERDACCIO_TOKEN="$(cat /run/secrets/VERDACCIO_TOKEN 2>/dev/null || true)" && \
-    if [ -n "$VERDACCIO_REGISTRY" ] && wget -q -T 5 -O /dev/null "${VERDACCIO_REGISTRY%/}/-/ping"; then \
-    echo "registry=${VERDACCIO_REGISTRY}" >> .npmrc && \
-    echo "registry \"${VERDACCIO_REGISTRY}\"" >> .yarnrc && \
-    sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g" yarn.lock && \
-    sed -i "s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" yarn.lock; \
-    elif [ -n "$VERDACCIO_TOKEN" ]; then \
-    echo "Internal Verdaccio VIP not in use (VERDACCIO_REGISTRY unset, or its probe failed) - installing through the public packages.ever.co route, which is known to truncate large tarballs mid-stream." && \
-    echo "//packages.ever.co/:_authToken=${VERDACCIO_TOKEN}" >> .npmrc && \
-    echo "registry=https://packages.ever.co/" >> .npmrc && \
-    echo "always-auth=true" >> .npmrc && \
-    echo 'registry "https://packages.ever.co/"' >> .yarnrc && \
-    sed -i 's|https://registry.yarnpkg.com|https://packages.ever.co|g' yarn.lock && \
-    sed -i 's|https://registry.npmjs.org|https://packages.ever.co|g' yarn.lock; \
-    fi && \
-    yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts && \
+RUN yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts && \
     yarn postinstall.manual && \
     yarn cache clean && \
     rm -f .npmrc .yarnrc
@@ -228,25 +210,9 @@ COPY --chown=node:node .scripts/postinstall.js ./.scripts/
 # (see note in the dependencies stage above).
 COPY --chown=node:node patches ./patches
 
-# VERDACCIO_TOKEN as a BuildKit secret — same single-RUN hygiene as the dependencies stage.
+# Public npm production install (no BuildKit secrets — Railway-compatible)
 ARG VERDACCIO_REGISTRY=""
-RUN --mount=type=secret,id=VERDACCIO_TOKEN,uid=1000 \
-    VERDACCIO_TOKEN="$(cat /run/secrets/VERDACCIO_TOKEN 2>/dev/null || true)" && \
-    if [ -n "$VERDACCIO_REGISTRY" ] && wget -q -T 5 -O /dev/null "${VERDACCIO_REGISTRY%/}/-/ping"; then \
-    echo "registry=${VERDACCIO_REGISTRY}" >> .npmrc && \
-    echo "registry \"${VERDACCIO_REGISTRY}\"" >> .yarnrc && \
-    sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g" yarn.lock && \
-    sed -i "s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" yarn.lock; \
-    elif [ -n "$VERDACCIO_TOKEN" ]; then \
-    echo "Internal Verdaccio VIP not in use (VERDACCIO_REGISTRY unset, or its probe failed) - installing through the public packages.ever.co route, which is known to truncate large tarballs mid-stream." && \
-    echo "//packages.ever.co/:_authToken=${VERDACCIO_TOKEN}" >> .npmrc && \
-    echo "registry=https://packages.ever.co/" >> .npmrc && \
-    echo "always-auth=true" >> .npmrc && \
-    echo 'registry "https://packages.ever.co/"' >> .yarnrc && \
-    sed -i 's|https://registry.yarnpkg.com|https://packages.ever.co|g' yarn.lock && \
-    sed -i 's|https://registry.npmjs.org|https://packages.ever.co|g' yarn.lock; \
-    fi && \
-    yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts --production && \
+RUN yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts --production && \
     yarn postinstall.manual && \
     yarn cache clean && \
     rm -f .npmrc .yarnrc
@@ -294,7 +260,7 @@ ARG DEMO
 ARG NODE_OPTIONS
 ARG NX_BRANCH
 
-ENV NODE_OPTIONS=${NODE_OPTIONS:-"--max-old-space-size=30000"}
+ENV NODE_OPTIONS=${NODE_OPTIONS:-"--max-old-space-size=8192"}
 ENV NODE_ENV=${NODE_ENV}
 ENV DEMO=${DEMO:-false}
 
@@ -304,20 +270,10 @@ ENV IS_DOCKER=true
 ENV NX_NO_CLOUD=true
 ENV NX_BRANCH=${NX_BRANCH}
 
-# The multi-GB root node_modules is bind-mounted from the dependencies stage for this RUN
-# only — it never lands in a persisted layer (this was the main cause of the 44GB+
-# build-time disk footprint, see issue #9791). `rw` allows transient cache writes into
-# the mount, which are discarded after the step. The @gauzy/* symlinks inside the mount
-# resolve to /srv/gauzy/packages|apps on this stage's fs — that is why the source COPYs
-# above must happen before this RUN.
-# The nx local task cache (.nx/cache — NOT disabled by CI=true) is written to the stage
-# fs and would duplicate every build output into this layer, so it is deleted in the
-# same RUN. (The Angular CLI disk cache IS disabled under CI.)
-# NX_CLOUD_ACCESS_TOKEN is an optional build secret (inert while NX_NO_CLOUD=true).
-RUN --mount=type=bind,from=dependencies,source=/srv/gauzy/node_modules,target=/srv/gauzy/node_modules,rw \
-    --mount=type=secret,id=NX_CLOUD_ACCESS_TOKEN,uid=1000 \
-    export NX_CLOUD_ACCESS_TOKEN="$(cat /run/secrets/NX_CLOUD_ACCESS_TOKEN 2>/dev/null || true)" && \
-    if [ "$NODE_ENV" = "production" ]; then \
+# Railway does not support BuildKit bind mounts — copy node_modules into the layer instead.
+COPY --chown=node:node --from=dependencies /srv/gauzy/node_modules ./node_modules
+
+RUN if [ "$NODE_ENV" = "production" ]; then \
     yarn build:api:prod:docker; \
     else \
     yarn build:api:dev:docker; \
@@ -351,65 +307,60 @@ COPY --chown=node:node apps/api/src/assets/seed apps/api/public
 
 COPY --chown=node:node --from=build /srv/gauzy/dist/apps/api .
 
-# Assemble the runtime node_modules in a SINGLE layer, reading the source trees through
-# bind mounts so they are never duplicated into this image:
-#  1. merge the production node_modules from prod-dependencies with cp -rn (no-clobber:
-#     the webpack-built @gauzy packages already inside dist/apps/api/node_modules WIN —
-#     this precedence is load-bearing, see custom-webpack.config.js);
-#  2. re-nest each workspace package's own node_modules (its non-hoisted deps from the
-#     workspace install) under node_modules/@gauzy/<pkg> — required for Node module
-#     resolution at runtime. Wakatime plugin is intentionally absent (Desktop Apps only).
-RUN --mount=type=bind,from=prod-dependencies,source=/srv/gauzy/node_modules,target=/mnt/prod_node_modules \
-    --mount=type=bind,from=build,source=/srv/gauzy/packages,target=/mnt/packages \
-    mkdir -p ./node_modules && \
-    cp -rn /mnt/prod_node_modules/* ./node_modules/ && \
-    cp -r /mnt/packages/auth/node_modules ./node_modules/@gauzy/auth/ && \
-    cp -r /mnt/packages/common/node_modules ./node_modules/@gauzy/common/ && \
-    cp -r /mnt/packages/utils/node_modules ./node_modules/@gauzy/utils/ && \
-    cp -r /mnt/packages/config/node_modules ./node_modules/@gauzy/config/ && \
-    cp -r /mnt/packages/contracts/node_modules ./node_modules/@gauzy/contracts/ && \
-    cp -r /mnt/packages/core/node_modules ./node_modules/@gauzy/core/ && \
-    cp -r /mnt/packages/scheduler/node_modules ./node_modules/@gauzy/scheduler/ && \
-    cp -r /mnt/packages/plugins/changelog/node_modules ./node_modules/@gauzy/plugin-changelog/ && \
-    cp -r /mnt/packages/plugins/integration-activepieces/node_modules ./node_modules/@gauzy/plugin-integration-activepieces/ && \
-    cp -r /mnt/packages/plugins/integration-ai/node_modules ./node_modules/@gauzy/plugin-integration-ai/ && \
-    cp -r /mnt/packages/plugins/integration-github/node_modules ./node_modules/@gauzy/plugin-integration-github/ && \
-    cp -r /mnt/packages/plugins/integration-hubstaff/node_modules ./node_modules/@gauzy/plugin-integration-hubstaff/ && \
-    cp -r /mnt/packages/plugins/integration-jira/node_modules ./node_modules/@gauzy/plugin-integration-jira/ && \
-    cp -r /mnt/packages/plugins/integration-make-com/node_modules ./node_modules/@gauzy/plugin-integration-make-com/ && \
-    cp -r /mnt/packages/plugins/integration-sim/node_modules ./node_modules/@gauzy/plugin-integration-sim/ && \
-    cp -r /mnt/packages/plugins/integration-plane/node_modules ./node_modules/@gauzy/plugin-integration-plane/ && \
-    if [ -d /mnt/packages/plugins/integration-ever-async/node_modules ]; then cp -r /mnt/packages/plugins/integration-ever-async/node_modules ./node_modules/@gauzy/plugin-integration-ever-async/; fi && \
-    cp -r /mnt/packages/plugins/integration-upwork/node_modules ./node_modules/@gauzy/plugin-integration-upwork/ && \
-    cp -r /mnt/packages/plugins/integration-zapier/node_modules ./node_modules/@gauzy/plugin-integration-zapier/ && \
-    cp -r /mnt/packages/plugins/jitsu-analytics/node_modules ./node_modules/@gauzy/plugin-jitsu-analytics/ && \
-    cp -r /mnt/packages/plugins/job-proposal/node_modules ./node_modules/@gauzy/plugin-job-proposal/ && \
-    cp -r /mnt/packages/plugins/job-search/node_modules ./node_modules/@gauzy/plugin-job-search/ && \
-    cp -r /mnt/packages/plugins/knowledge-base/node_modules ./node_modules/@gauzy/plugin-knowledge-base/ && \
-    cp -r /mnt/packages/plugins/camshot/node_modules ./node_modules/@gauzy/plugin-camshot/ && \
-    cp -r /mnt/packages/plugins/product-reviews/node_modules ./node_modules/@gauzy/plugin-product-reviews/ && \
-    cp -r /mnt/packages/plugins/sentry-tracing/node_modules ./node_modules/@gauzy/plugin-sentry/ && \
-    cp -r /mnt/packages/plugins/posthog/node_modules ./node_modules/@gauzy/plugin-posthog/ && \
-    cp -r /mnt/packages/plugins/videos/node_modules ./node_modules/@gauzy/plugin-videos/ && \
-    cp -r /mnt/packages/plugins/soundshot/node_modules ./node_modules/@gauzy/plugin-soundshot/ && \
-    cp -r /mnt/packages/plugins/registry/node_modules ./node_modules/@gauzy/plugin-registry/ && \
-    cp -r /mnt/packages/plugins/ai-chat/node_modules ./node_modules/@gauzy/plugin-ai-chat/ && \
-    cp -r /mnt/packages/plugins/ai-provider-anthropic/node_modules ./node_modules/@gauzy/plugin-ai-provider-anthropic/ && \
-    cp -r /mnt/packages/plugins/ai-provider-openai/node_modules ./node_modules/@gauzy/plugin-ai-provider-openai/ && \
-    cp -r /mnt/packages/plugins/ai-provider-openrouter/node_modules ./node_modules/@gauzy/plugin-ai-provider-openrouter/ && \
-    cp -r /mnt/packages/plugins/ai-provider-vercel-gateway/node_modules ./node_modules/@gauzy/plugin-ai-provider-vercel-gateway/ && \
-    cp -r /mnt/packages/plugins/ai-provider-gauzy-ai/node_modules ./node_modules/@gauzy/plugin-ai-provider-gauzy-ai/ && \
-    cp -r /mnt/packages/plugins/ai-provider-gemini/node_modules ./node_modules/@gauzy/plugin-ai-provider-gemini/ && \
-    cp -r /mnt/packages/plugins/ai-provider-grok/node_modules ./node_modules/@gauzy/plugin-ai-provider-grok/ && \
-    cp -r /mnt/packages/plugins/ai-provider-groq/node_modules ./node_modules/@gauzy/plugin-ai-provider-groq/ && \
-    cp -r /mnt/packages/plugins/ai-provider-mistral/node_modules ./node_modules/@gauzy/plugin-ai-provider-mistral/ && \
-    cp -r /mnt/packages/plugins/ai-provider-deepgram/node_modules ./node_modules/@gauzy/plugin-ai-provider-deepgram/ && \
-    cp -r /mnt/packages/plugins/ai-provider-elevenlabs/node_modules ./node_modules/@gauzy/plugin-ai-provider-elevenlabs/ && \
-    cp -r /mnt/packages/plugins/ai-provider-speaches/node_modules ./node_modules/@gauzy/plugin-ai-provider-speaches/ && \
-    cp -r /mnt/packages/plugins/ai-provider-localai/node_modules ./node_modules/@gauzy/plugin-ai-provider-localai/ && \
-    cp -r /mnt/packages/plugins/ai-provider-whisper-cpp/node_modules ./node_modules/@gauzy/plugin-ai-provider-whisper-cpp/ && \
-    cp -r /mnt/packages/plugins/ai-provider-openai-compatible/node_modules ./node_modules/@gauzy/plugin-ai-provider-openai-compatible/ && \
-    cp -r /mnt/packages/plugins/docs/node_modules ./node_modules/@gauzy/plugin-docs/
+# Railway-compatible: COPY instead of BuildKit bind mounts
+COPY --chown=node:node --from=prod-dependencies /srv/gauzy/node_modules /tmp/prod_node_modules
+COPY --chown=node:node --from=build /srv/gauzy/packages /tmp/packages
+
+RUN mkdir -p ./node_modules && \
+    cp -rn /tmp/prod_node_modules/* ./node_modules/ && \
+    cp -r /tmp/packages/auth/node_modules ./node_modules/@gauzy/auth/ && \
+    cp -r /tmp/packages/common/node_modules ./node_modules/@gauzy/common/ && \
+    cp -r /tmp/packages/utils/node_modules ./node_modules/@gauzy/utils/ && \
+    cp -r /tmp/packages/config/node_modules ./node_modules/@gauzy/config/ && \
+    cp -r /tmp/packages/contracts/node_modules ./node_modules/@gauzy/contracts/ && \
+    cp -r /tmp/packages/core/node_modules ./node_modules/@gauzy/core/ && \
+    cp -r /tmp/packages/scheduler/node_modules ./node_modules/@gauzy/scheduler/ && \
+    cp -r /tmp/packages/plugins/changelog/node_modules ./node_modules/@gauzy/plugin-changelog/ && \
+    cp -r /tmp/packages/plugins/integration-activepieces/node_modules ./node_modules/@gauzy/plugin-integration-activepieces/ && \
+    cp -r /tmp/packages/plugins/integration-ai/node_modules ./node_modules/@gauzy/plugin-integration-ai/ && \
+    cp -r /tmp/packages/plugins/integration-github/node_modules ./node_modules/@gauzy/plugin-integration-github/ && \
+    cp -r /tmp/packages/plugins/integration-hubstaff/node_modules ./node_modules/@gauzy/plugin-integration-hubstaff/ && \
+    cp -r /tmp/packages/plugins/integration-jira/node_modules ./node_modules/@gauzy/plugin-integration-jira/ && \
+    cp -r /tmp/packages/plugins/integration-make-com/node_modules ./node_modules/@gauzy/plugin-integration-make-com/ && \
+    cp -r /tmp/packages/plugins/integration-sim/node_modules ./node_modules/@gauzy/plugin-integration-sim/ && \
+    cp -r /tmp/packages/plugins/integration-plane/node_modules ./node_modules/@gauzy/plugin-integration-plane/ && \
+    if [ -d /tmp/packages/plugins/integration-ever-async/node_modules ]; then cp -r /tmp/packages/plugins/integration-ever-async/node_modules ./node_modules/@gauzy/plugin-integration-ever-async/; fi && \
+    cp -r /tmp/packages/plugins/integration-upwork/node_modules ./node_modules/@gauzy/plugin-integration-upwork/ && \
+    cp -r /tmp/packages/plugins/integration-zapier/node_modules ./node_modules/@gauzy/plugin-integration-zapier/ && \
+    cp -r /tmp/packages/plugins/jitsu-analytics/node_modules ./node_modules/@gauzy/plugin-jitsu-analytics/ && \
+    cp -r /tmp/packages/plugins/job-proposal/node_modules ./node_modules/@gauzy/plugin-job-proposal/ && \
+    cp -r /tmp/packages/plugins/job-search/node_modules ./node_modules/@gauzy/plugin-job-search/ && \
+    cp -r /tmp/packages/plugins/knowledge-base/node_modules ./node_modules/@gauzy/plugin-knowledge-base/ && \
+    cp -r /tmp/packages/plugins/camshot/node_modules ./node_modules/@gauzy/plugin-camshot/ && \
+    cp -r /tmp/packages/plugins/product-reviews/node_modules ./node_modules/@gauzy/plugin-product-reviews/ && \
+    cp -r /tmp/packages/plugins/sentry-tracing/node_modules ./node_modules/@gauzy/plugin-sentry/ && \
+    cp -r /tmp/packages/plugins/posthog/node_modules ./node_modules/@gauzy/plugin-posthog/ && \
+    cp -r /tmp/packages/plugins/videos/node_modules ./node_modules/@gauzy/plugin-videos/ && \
+    cp -r /tmp/packages/plugins/soundshot/node_modules ./node_modules/@gauzy/plugin-soundshot/ && \
+    cp -r /tmp/packages/plugins/registry/node_modules ./node_modules/@gauzy/plugin-registry/ && \
+    cp -r /tmp/packages/plugins/ai-chat/node_modules ./node_modules/@gauzy/plugin-ai-chat/ && \
+    cp -r /tmp/packages/plugins/ai-provider-anthropic/node_modules ./node_modules/@gauzy/plugin-ai-provider-anthropic/ && \
+    cp -r /tmp/packages/plugins/ai-provider-openai/node_modules ./node_modules/@gauzy/plugin-ai-provider-openai/ && \
+    cp -r /tmp/packages/plugins/ai-provider-openrouter/node_modules ./node_modules/@gauzy/plugin-ai-provider-openrouter/ && \
+    cp -r /tmp/packages/plugins/ai-provider-vercel-gateway/node_modules ./node_modules/@gauzy/plugin-ai-provider-vercel-gateway/ && \
+    cp -r /tmp/packages/plugins/ai-provider-gauzy-ai/node_modules ./node_modules/@gauzy/plugin-ai-provider-gauzy-ai/ && \
+    cp -r /tmp/packages/plugins/ai-provider-gemini/node_modules ./node_modules/@gauzy/plugin-ai-provider-gemini/ && \
+    cp -r /tmp/packages/plugins/ai-provider-grok/node_modules ./node_modules/@gauzy/plugin-ai-provider-grok/ && \
+    cp -r /tmp/packages/plugins/ai-provider-groq/node_modules ./node_modules/@gauzy/plugin-ai-provider-groq/ && \
+    cp -r /tmp/packages/plugins/ai-provider-mistral/node_modules ./node_modules/@gauzy/plugin-ai-provider-mistral/ && \
+    cp -r /tmp/packages/plugins/ai-provider-deepgram/node_modules ./node_modules/@gauzy/plugin-ai-provider-deepgram/ && \
+    cp -r /tmp/packages/plugins/ai-provider-elevenlabs/node_modules ./node_modules/@gauzy/plugin-ai-provider-elevenlabs/ && \
+    cp -r /tmp/packages/plugins/ai-provider-speaches/node_modules ./node_modules/@gauzy/plugin-ai-provider-speaches/ && \
+    cp -r /tmp/packages/plugins/ai-provider-localai/node_modules ./node_modules/@gauzy/plugin-ai-provider-localai/ && \
+    cp -r /tmp/packages/plugins/ai-provider-whisper-cpp/node_modules ./node_modules/@gauzy/plugin-ai-provider-whisper-cpp/ && \
+    cp -r /tmp/packages/plugins/ai-provider-openai-compatible/node_modules ./node_modules/@gauzy/plugin-ai-provider-openai-compatible/ && \
+    cp -r /tmp/packages/plugins/docs/node_modules ./node_modules/@gauzy/plugin-docs/ && \
+    rm -rf /tmp/prod_node_modules /tmp/packages
 
 RUN mkdir /import && chown node:node /import && touch ormlogs.log && chown node:node ormlogs.log && chown node:node wait && \
     chmod +x wait entrypoint.compose.sh entrypoint.prod.sh && chown -R node:node apps/
@@ -425,7 +376,7 @@ ENV CI=true
 # must come from the orchestrator's runtime environment (k8s manifests, compose env_file);
 # declaring secret-named ARG/ENV here would embed them in a public image and trigger
 # buildx SecretsUsedInArgOrEnv warnings.
-ENV NODE_OPTIONS="--max-old-space-size=12288"
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_ENV=production
 
 # Deployed release version (git tag) + commit SHA — exposed at runtime by

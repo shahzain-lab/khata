@@ -9,7 +9,7 @@ dockerfilePath = ".deploy/webapp/Dockerfile"
 [build.args]
 NODE_ENV = "production"
 DEMO = "false"
-NODE_OPTIONS = "--max-old-space-size=12288"
+NODE_OPTIONS = "--max-old-space-size=8192"
 
 [deploy]
 healthcheckPath = "/"

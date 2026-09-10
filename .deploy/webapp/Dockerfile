@@ -141,23 +141,7 @@ COPY --chown=node:node patches ./patches
 ENV REQUIRE_NATIVE_BINARIES=""
 
 ARG VERDACCIO_REGISTRY=""
-RUN --mount=type=secret,id=VERDACCIO_TOKEN,uid=1000 \
-	VERDACCIO_TOKEN="$(cat /run/secrets/VERDACCIO_TOKEN 2>/dev/null || true)" && \
-	if [ -n "$VERDACCIO_REGISTRY" ] && wget -q -T 5 -O /dev/null "${VERDACCIO_REGISTRY%/}/-/ping"; then \
-	echo "registry=${VERDACCIO_REGISTRY}" >> .npmrc && \
-	echo "registry \"${VERDACCIO_REGISTRY}\"" >> .yarnrc && \
-	sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g" yarn.lock && \
-	sed -i "s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" yarn.lock; \
-	elif [ -n "$VERDACCIO_TOKEN" ]; then \
-	echo "Internal Verdaccio VIP not in use (VERDACCIO_REGISTRY unset, or its probe failed) - installing through the public packages.ever.co route, which is known to truncate large tarballs mid-stream." && \
-	echo "//packages.ever.co/:_authToken=${VERDACCIO_TOKEN}" >> .npmrc && \
-	echo "registry=https://packages.ever.co/" >> .npmrc && \
-	echo "always-auth=true" >> .npmrc && \
-	echo 'registry "https://packages.ever.co/"' >> .yarnrc && \
-	sed -i 's|https://registry.yarnpkg.com|https://packages.ever.co|g' yarn.lock && \
-	sed -i 's|https://registry.npmjs.org|https://packages.ever.co|g' yarn.lock; \
-	fi && \
-	yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts && \
+RUN yarn install --network-timeout 1000000 --network-concurrency 4 --frozen-lockfile --ignore-scripts && \
 	yarn postinstall.manual && \
 	yarn cache clean && \
 	rm -f .npmrc .yarnrc
@@ -204,7 +188,7 @@ ARG NX_BRANCH
 ARG GAUZY_APP_VERSION
 ARG GAUZY_APP_COMMIT
 
-ENV NODE_OPTIONS=${NODE_OPTIONS:-"--max-old-space-size=30000"}
+ENV NODE_OPTIONS=${NODE_OPTIONS:-"--max-old-space-size=8192"}
 ENV NODE_ENV=${NODE_ENV:-production}
 ENV DEMO=${DEMO:-false}
 
@@ -217,21 +201,10 @@ ENV IS_DOCKER=true
 ENV NX_NO_CLOUD=true
 ENV NX_BRANCH=${NX_BRANCH}
 
-# The multi-GB root node_modules is bind-mounted from the dependencies stage for this RUN
-# only — it never lands in a persisted layer (this was the main cause of the 44GB+
-# build-time disk footprint, see issue #9791). `rw` allows transient cache writes into
-# the mount, which are discarded after the step. The @gauzy/* symlinks inside the mount
-# resolve to /srv/gauzy/packages|apps on this stage's fs — that is why the source COPYs
-# above must happen before this RUN. `yarn run config:*` (ts-node .scripts/configure.ts)
-# runs inside this same RUN and writes packages/ui-config environment files to the stage fs.
-# The nx local task cache (.nx/cache — NOT disabled by CI=true) is written to the stage
-# fs and would duplicate every build output into this layer, so it is deleted in the
-# same RUN. (The Angular CLI disk cache IS disabled under CI.)
-# NX_CLOUD_ACCESS_TOKEN is an optional build secret (inert while NX_NO_CLOUD=true).
-RUN --mount=type=bind,from=dependencies,source=/srv/gauzy/node_modules,target=/srv/gauzy/node_modules,rw \
-	--mount=type=secret,id=NX_CLOUD_ACCESS_TOKEN,uid=1000 \
-	export NX_CLOUD_ACCESS_TOKEN="$(cat /run/secrets/NX_CLOUD_ACCESS_TOKEN 2>/dev/null || true)" && \
-	if [ "$NODE_ENV" = "production" ]; then \
+# Railway does not support BuildKit bind mounts — copy node_modules into the layer instead.
+COPY --chown=node:node --from=dependencies /srv/gauzy/node_modules ./node_modules
+
+RUN if [ "$NODE_ENV" = "production" ]; then \
 	yarn build:gauzy:prod:docker; \
 	else \
 	yarn build:gauzy:dev:docker; \
@@ -262,7 +235,7 @@ ENV CI=true
 # (SENTRY_DSN, POSTHOG_KEY, CHATWOOT_SDK_TOKEN, GOOGLE_MAPS_API_KEY, ...) used to bake
 # empty strings and are now simply unset — identical substitution result, and no more
 # secret-named ENV in a public image.
-ENV NODE_OPTIONS="--max-old-space-size=12288"
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_ENV=production
 
 ENV API_HOST=api
