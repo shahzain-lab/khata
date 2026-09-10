@@ -1,0 +1,19 @@
+# Copy into the Railway *web* service as railway.toml (or set these in the dashboard).
+# Dashboard → Service → Settings → Build:
+#   Dockerfile path = .deploy/webapp/Dockerfile
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = ".deploy/webapp/Dockerfile"
+
+[build.args]
+NODE_ENV = "production"
+DEMO = "false"
+NODE_OPTIONS = "--max-old-space-size=12288"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# Railway injects PORT; entrypoint maps it to nginx listen port

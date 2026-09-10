@@ -1,0 +1,19 @@
+# Copy into the Railway *api* service as railway.toml (or set these in the dashboard).
+# Dashboard → Service → Settings → Build:
+#   Dockerfile path = .deploy/api/Dockerfile
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = ".deploy/api/Dockerfile"
+
+[build.args]
+NODE_ENV = "production"
+DEMO = "false"
+NODE_OPTIONS = "--max-old-space-size=12288"
+
+[deploy]
+healthcheckPath = "/api"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# Railway injects PORT; entrypoint maps it to API_PORT

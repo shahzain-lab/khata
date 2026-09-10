@@ -1,0 +1,10 @@
+/* Khata: employee activity layout sheet removed */
+.tabset{
+    padding: 0;
+}
+
+// "Settings/" ahead of the page name, inside `ngx-header-title` — it inherits
+// that component's size, and only the weight makes it recede.
+.menu-setting {
+	font-weight: 400;
+}

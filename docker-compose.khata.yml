@@ -1,0 +1,22 @@
+# Local Postgres for Khata (accounting)
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: khata-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: khata
+      POSTGRES_USER: khata
+      POSTGRES_PASSWORD: khata_secure_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - khata_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U khata -d khata']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  khata_pgdata:

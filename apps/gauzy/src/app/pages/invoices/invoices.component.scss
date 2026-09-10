@@ -1,0 +1,738 @@
+@forward 'report';
+@use 'gauzy/_gauzy-cards' as *;
+@use 'gauzy/_gauzy-overrides' as ga-overrides;
+@use 'gauzy/_gauzy-table-hub' as ga-hub;
+
+.popover-container {
+  display: flex;
+  flex-direction: column;
+  justify-items: flex-start;
+  align-items: flex-start;
+  padding: 12.5px 14px 12.5px 18px;
+  border-radius: $default-radius;
+  width: 411px;
+
+  .title {
+    color: nb-theme(text-primary-color);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 16px;
+    letter-spacing: 0em;
+  }
+
+  i {
+    cursor: pointer;
+  }
+  @include ga-overrides.dialog(var(--gauzy-card-1), var(--gauzy-sidebar-background-4));
+}
+
+.popover-container-action {
+  padding: 0.5rem;
+  border-radius: $default-radius;
+}
+
+::ng-deep nb-popover {
+  border-radius: 10px !important;
+}
+
+.per-page {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.per-page-input {
+  width: 138px;
+}
+
+.per-page-label {
+  align-self: flex-start;
+}
+
+.per-page-container {
+  margin: 10px 0;
+}
+
+.show-columns {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 2rem;
+
+  .show-columns-select.size-medium:not(.full-width) {
+    max-width: unset;
+    margin-right: 9px;
+  }
+}
+
+.show-columns-label {
+  text-align: left;
+  width: 100%;
+}
+
+:host .actions-container {
+  display: flex;
+  flex-wrap: nowrap;
+  position: absolute;
+  align-items: center;
+  @include nb-rtl(left, 1rem);
+  @include nb-ltr(right, 1rem);
+}
+
+.show-columns-select {
+  margin-bottom: 20px;
+}
+
+.history-list {
+  margin: 20px 0;
+}
+
+.history-list-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-list-select {
+  font-weight: bold;
+  // margin: 20px 0;
+  width: 50%;
+}
+
+.history-action {
+  font-weight: bold;
+}
+
+.history-date {
+  font-size: 12px;
+}
+
+.history-item {
+  align-self: flex-start;
+}
+
+.btn-group {
+  display: flex;
+  align-items: center;
+}
+
+button {
+  margin: 5px;
+}
+
+.content-active {
+  padding-left: 0;
+}
+
+::ng-deep .arrow {
+  display: none;
+}
+
+.icon-text {
+  margin-right: 0.5rem;
+}
+
+.actions {
+  background: var(--gauzy-card-2);
+  border-radius: nb-theme(button-rectangle-border-radius);
+  padding: 0px 1px 0px 1px;
+  margin-right: 20px;
+}
+
+.transition-container {
+  overflow-x: hidden;
+  border-radius: nb-theme(button-rectangle-border-radius);
+
+  span {
+    background: var(--gauzy-card-2);
+    border-radius: nb-theme(button-rectangle-border-radius);
+    padding: 0px 1px 0px 1px;
+    margin-right: 10px;
+  }
+}
+
+:host .transition {
+  display: flex;
+
+  &.hide {
+    @include nb-rtl(transform, translateX(-100%));
+    @include nb-ltr(transform, translateX(100%));
+    transition: all 0.15s ease-in;
+  }
+
+  &.show {
+    opacity: 1;
+    transform: translateX(0%);
+    transition: all 0.25s ease-out;
+  }
+
+  &.show-button {
+    @include nb-rtl(transform, translateX(110%));
+    @include nb-ltr(transform, translateX(-110%));
+  }
+}
+
+.nb-accordion-item-header {
+  position: relative;
+
+  & .accordion-header-hint {
+    position: absolute;
+    bottom: 0;
+    font-size: 10px;
+    color: var(--text-primary-disabled-color);
+  }
+}
+
+nb-accordion-item-header ::ng-deep nb-icon {
+  border: 1px solid nb-theme(border-basic-color-4);
+  border-radius: nb-theme(input-rectangle-border-radius);
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+nb-accordion-item {
+  background-color: var(--gauzy-card-3);
+}
+
+ga-currency::ng-deep nb-select {
+  .select-button {
+    border-radius: nb-theme(input-rectangle-border-radius);
+  }
+}
+
+#inputStatus::ng-deep {
+  .select-button {
+    border-radius: nb-theme(input-rectangle-border-radius);
+    height: 42px;
+  }
+}
+
+:host ::ng-deep ngx-avatar {
+  .inner-wrapper {
+    background-color: nb-theme(color-primary-transparent-100);
+    border-radius: nb-theme(button-rectangle-border-radius);
+    padding: 3px 9px 3px 3px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: fit-content;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 15px;
+    letter-spacing: 0em;
+    gap: 8px;
+
+    .image-container {
+      height: 20px;
+      width: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      img[type='user'] {
+        height: 18px;
+        width: 18px;
+      }
+    }
+
+    .link-text {
+      color: nb-theme(text-primary-color);
+      font-weight: normal;
+    }
+  }
+}
+
+ga-pagination {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.comments {
+  // `scroll` reserved a scrollbar gutter on the History tab even when an invoice
+  // has one comment or none, so the empty panel showed a dead scrollbar track.
+  overflow-y: auto;
+  height: 15rem;
+}
+
+textarea {
+  height: 85px;
+  resize: none;
+}
+
+// Same hairline ring as the shared `.action` block in `gauzy/_gauzy-table.scss`
+// — this file carries a near-verbatim copy of it (with the drop shadow spelled
+// out as a literal rather than read from `--gauzy-shadow`).
+.action {
+  box-shadow: inset 0 0 0 1px var(--gauzy-overlay-border-color, rgba(126, 126, 143, 0.18));
+
+  &[nbButton].appearance-filled.status-basic {
+    background-color: var(--gauzy-card-2);
+  }
+
+  // `&.info { background-color: #0088fe }` used to sit here — a hard-coded blue
+  // that never painted anything. Its only user is the estimates toolbar's "To
+  // invoice" button, which carries `status="info"`, so Nebular's own
+  // `[nbButton].appearance-filled.status-info` background (0,3,0) out-ranked the
+  // bare `.action.info` (0,2,0) on every render. The button is, and stays, a
+  // filled info button drawn from `button-filled-info-background-color`.
+
+  &.danger {
+    color: nb-theme(color-danger-default);
+  }
+
+  &.secondary {
+    color: var(--text-hint-color);
+  }
+
+  &.primary {
+    &[nbButton].appearance-filled.status-basic,
+    .appearance-filled.status-basic[nbButtonToggle] {
+      color: nb-theme(text-primary-color);
+    }
+  }
+
+  &.select-nb ::ng-deep {
+    box-shadow: none;
+
+    .select-button {
+      box-shadow: inset 0 0 0 1px var(--gauzy-overlay-border-color, rgba(126, 126, 143, 0.18));
+      background: var(--gauzy-card-2);
+      height: 2rem;
+      border-radius: nb-theme(button-rectangle-border-radius);
+    }
+  }
+}
+
+:host nb-select ::ng-deep {
+  .select-button {
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 1px 0px inset;
+  }
+}
+
+:host .input-icon,
+:host .input-date {
+  display: flex;
+  align-items: center;
+  color: nb-theme(text-basic-color);
+  border-radius: 0.5rem;
+  height: 42px;
+  position: relative;
+
+  &:hover {
+    border-color: nb-theme(color-primary-hover);
+    color: nb-theme(text-basic-color);
+
+    &:focus {
+      background: rgba(126, 126, 143, 0.05);
+    }
+  }
+
+  &:active {
+    background: rgba(126, 126, 143, 0.05);
+  }
+
+  .icon {
+    position: absolute;
+    @include nb-ltr(right, 14px);
+    @include nb-rtl(left, 0);
+  }
+}
+
+input {
+  background: transparent;
+  width: 100%;
+}
+
+:host nb-card-body {
+  overflow: unset;
+  padding: 0;
+  background-color: unset;
+}
+
+nb-tab {
+  background-color: var(--gauzy-card-2);
+  // Was `border: 0 0 $default-radius $default-radius`. The `border` shorthand
+  // takes width/style/colour, not four corner radii, so with `$default-radius`
+  // resolving to `var(--border-radius)` the declaration became invalid at
+  // computed-value time and was thrown away whole: the tab panel filled the
+  // bottom of the card with square corners inside the card's rounded ones.
+  border-radius: 0 0 $default-radius $default-radius;
+}
+
+:host {
+  nb-card {
+    margin: 0;
+  }
+
+  .remove-scroll {
+    overflow: unset;
+    width: 100%;
+    // Same `border` / `border-radius` mix-up as the `nb-tab` rule above — this
+    // targets the same element (`nb-tab.remove-scroll`).
+    border-radius: 0 0 $default-radius $default-radius;
+    @include nb-ltr(padding, 1rem 0.5rem 1rem 18px);
+    @include nb-rtl(padding, 1rem 18px 1rem 0.5rem);
+    nb-accordion {
+      @include nb-ltr(margin-right, 0.625rem);
+      @include nb-rtl(margin-left, 0.625rem);
+    }
+
+    .custom-content-body {
+      height: calc(100vh - 19.5rem);
+      display: flex;
+      flex-direction: column;
+
+      .table-scroll-container {
+        flex-grow: 10;
+        max-height: unset;
+      }
+
+      .grid {
+        overflow: auto;
+        height: 100%;
+      }
+
+      ga-card-grid {
+        ::ng-deep .grid-scroll-container {
+          max-height: 100%;
+        }
+      }
+    }
+
+    padding: 1rem;
+  }
+
+  ::ng-deep {
+    @include card_overrides(auto, $default-card-height, $default-radius);
+    @include ga-overrides.ng-select-overrides(
+      ga-overrides.$default-height,
+      $default-radius,
+      ga-overrides.$default-box-shadow-inset
+    );
+
+    nb-tabset .tab.active .tab-link {
+      background-color: var(--gauzy-card-2);
+      border: unset;
+      text-decoration: none;
+    }
+
+    [nbInput].status-basic,
+    nb-select.appearance-outline.status-basic .select-button,
+    .ng-select .ng-select-container {
+      background-color: var(--background-basic-color-1);
+    }
+  }
+}
+
+:host nb-accordion {
+  @include ga-overrides.dialog(var(--gauzy-card-1), var(--gauzy-card-1));
+}
+
+.comments-container {
+  margin-inline: 0;
+
+  & nb-list {
+    margin: 0;
+  }
+
+  & .col-6:nth-child(1) {
+    padding-top: 15px;
+    color: var(--gauzy-text-color-2);
+
+    & textarea {
+      font-weight: 400;
+    }
+  }
+
+  & .col-6:nth-child(2) {
+    background: var(--gauzy-card-1);
+    border-radius: var(--border-radius);
+    padding: 15px 6px 0 15px;
+    color: var(--gauzy-text-color-2);
+
+    & nb-list-item {
+      padding-left: 0;
+      position: relative;
+
+      & .history-item.history-date {
+        color: var(--text-hint-color);
+        margin-top: 3px;
+      }
+
+      & .history-item.history-title {
+        margin-top: 10px;
+        text-transform: capitalize;
+        font-weight: bold;
+      }
+      & .history-item.history-comment {
+        margin-top: 6px;
+        font-size: 0.85rem;
+        &.history-comment::first-letter {
+          text-transform: capitalize;
+        }
+      }
+    }
+
+    // border bottom
+    & nb-list-item::after {
+      content: '';
+      display: block;
+      width: 100%;
+      border-bottom: thin solid var(--accordion-header-border-color);
+      position: absolute;
+      bottom: 0;
+    }
+  }
+}
+
+:host {
+  @include ga-hub.density-tokens();
+}
+
+:host .estimate-page ::ng-deep .ga-page-title-trail {
+  margin-top: -0.25rem;
+  font-size: 0.75rem;
+
+  .ga-breadcrumb-list {
+    gap: 0.125rem;
+  }
+
+  .ga-breadcrumb-item {
+    gap: 0.125rem;
+    font-size: 0.75rem;
+    line-height: 1.5rem;
+  }
+
+  .ga-breadcrumb-link,
+  .ga-breadcrumb-text,
+  .ga-breadcrumb-current {
+    height: 1.5rem;
+    max-width: 14rem;
+    padding-inline: 0.375rem;
+    border-radius: var(--gauzy-radius-sm, 0.375rem);
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .ga-breadcrumb-separator nb-icon {
+    font-size: 0.875rem;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+:host .table-scroll-container {
+  @include ga-hub.surface();
+}
+
+:host ::ng-deep angular2-smart-table {
+  @include ga-hub.rows();
+}
+
+:host ::ng-deep {
+  @include ga-hub.tag-stack-spacing();
+}
+
+:host ::ng-deep ga-status-badge {
+  @include ga-hub.status-badge-tints();
+}
+
+:host .pagination-container {
+  @include ga-hub.pager-container();
+}
+
+:host .pagination-container ::ng-deep ngx-pagination {
+  @include ga-hub.pager();
+}
+
+// ── Tab bar ──────────────────────────────────────────────────────────────────
+// One step down from the app-wide `tabset-tab-text-font-size` (0.875rem) for
+// this page only: Browse / Search / History are three short words, and at the
+// shared size they read heavier than the card title above them.
+//
+// `.tab-link.tab-link` is doubled on purpose. The global rules in
+// `gauzy/_gauzy-overrides.scss` are `nb-tabset .tabset .tab a.tab-link` (0,3,2)
+// and `nb-tabset .tabset .tab.active a.tab-link` (0,4,2); a single `.tab-link`
+// here would only tie with the active one, and a tie between a component sheet
+// and a global sheet is decided by stylesheet order, which is not ours to rely
+// on. Doubling takes both, active and idle, without `!important`.
+:host ::ng-deep nb-tabset .tabset .tab a.tab-link.tab-link {
+  font-size: 0.75rem;
+  line-height: 0.875rem;
+}
+
+// ── Search panel ─────────────────────────────────────────────
+// The search form is an accordion stacked ABOVE the table inside a fixed-height
+// `.custom-content-body` (`calc(100vh - 19.5rem)`), with the table as the flex
+// child that absorbs whatever is left. Expanded, the form's full-size controls —
+// three rows of 42px fields, each with a label and a 1rem gutter — ate nearly all
+// of it, so opening Search left the table only a row or two tall.
+//
+// Scoped to `.search-tab nb-accordion`, NOT to `.search-tab`: the table renders
+// inside the same tab, and a bare `.search-tab ::ng-deep input` would also catch
+// the smart-table filter row and pull it off the shared `ga-hub` density above.
+// Everything here shrinks the FORM; the table just gets the reclaimed height.
+:host .search-tab {
+  // `.mb-3` (1rem) between the form and the table.
+  nb-accordion.mb-3 {
+    margin-bottom: 0.5rem !important;
+  }
+
+  nb-accordion-item-header {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    min-height: 0;
+  }
+
+  // The chevron box is sized to its glyph in the `nb-accordion-item-header` rule
+  // near the top of this file (1.75rem); it comes down with the header.
+  nb-accordion-item-header ::ng-deep nb-icon {
+    width: 1.375rem;
+    height: 1.375rem;
+    font-size: 0.875rem;
+  }
+
+  nb-accordion-item-body ::ng-deep .item-body {
+    padding: 0.75rem;
+  }
+
+  nb-accordion {
+    .form-group {
+      margin-bottom: 0.5rem;
+    }
+
+    .label {
+      margin-bottom: 0.1875rem;
+    }
+
+    // Wrappers this file pins at 42px for the full-density form.
+    .input-icon,
+    .input-date {
+      height: ga-overrides.$compact-control-height;
+    }
+
+    .input-icon .icon {
+      font-size: 0.875rem;
+    }
+
+    // The `min-height` on these three comes from `input-appearance()` — pulled in
+    // by the `:host nb-accordion` dialog include above — as `!important`, so the
+    // compact floor has to be `!important` too to be reachable at all.
+    ::ng-deep input,
+    ::ng-deep nb-select.appearance-outline.status-basic .select-button,
+    ::ng-deep .ng-select .ng-select-container {
+      min-height: ga-overrides.$compact-control-height !important;
+      height: ga-overrides.$compact-control-height;
+      padding-block: 0;
+      font-size: 0.75rem;
+    }
+
+    // `ng-select` and `nb-tag-list` draw their own text input INSIDE the trigger
+    // the rule above just sized; that inner input must not get a box of its own,
+    // or it stacks a second control height inside the first.
+    ::ng-deep .ng-select .ng-select-container input,
+    ::ng-deep nb-tag-list input {
+      min-height: 0 !important;
+      height: auto;
+      padding-block: 0;
+    }
+
+    ::ng-deep .ng-select .ng-select-container .ng-value-container {
+      font-size: 0.75rem;
+    }
+
+    // The status select pins its own 42px by id (1,1,0) higher up in this file.
+    ::ng-deep #inputStatus .select-button {
+      height: ga-overrides.$compact-control-height;
+      font-size: 0.75rem;
+    }
+
+    // Submit / reset sit in a bare `.row`; the file-wide `button { margin: 5px }`
+    // is the only thing spacing them.
+    button {
+      margin: 0.25rem;
+      font-size: 0.75rem;
+    }
+  }
+}
+
+// ── Search tab: one scroll port on the parent ────────────────────────────────
+// `.custom-content-body` is a fixed-height flex column (`calc(100vh - 19.5rem)`),
+// and inside it the table is a scroll container of its own — so `min-height: auto`
+// resolves to 0 for it and the flex algorithm is free to crush it. With the form
+// expanded that is exactly what happened: the form took its content height, the
+// table got whatever was left (on a short viewport, one clipped row), and nothing
+// anywhere overflowed, so no scrollbar ever appeared to say there was more.
+//
+// The fix is to stop making the two fight over a fixed budget. The table stops
+// scrolling internally in this tab and contributes its full height, the body
+// overflows, and the body scrolls — one scrollbar, form and table in one flow,
+// which is also what makes the sticky `thead` land at the top of the visible area
+// once the form scrolls away (sticky resolves against the nearest scroll port).
+//
+// Only the Search tab: Browse has no form above the table and is better off with
+// the table scrolling in place under a fixed pager.
+:host .search-tab .custom-content-body {
+  overflow-y: auto;
+  // A trackpad flick that reaches the end of this list should not then scroll the
+  // page behind it.
+  overscroll-behavior-y: contain;
+
+  // Natural height, no shrinking — the form is not what should give way.
+  nb-accordion {
+    flex: 0 0 auto;
+  }
+
+  .table-scroll-container {
+    // `overflow-y: auto` + `max-height: calc(100vh - 28rem)` come from the global
+    // `.table-scroll-container` rule in `_overrides.scss`; `flex-grow: 10` from
+    // the `.custom-content-body` block above. All three exist to make the table
+    // scroll inside a fixed box, which is the behaviour being handed to the
+    // parent here.
+    overflow-y: visible;
+    max-height: none;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  // The pager rides the bottom edge of the scroll port instead of sitting at the
+  // far end of the scrolled content, so paging never requires scrolling first.
+  // `z-index` keeps it over the sticky `thead`, which shares the same port.
+  .pagination-container {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    flex: 0 0 auto;
+  }
+}
+
+// ── Pager: an opaque strip, not a transparent one ────────────────────────────
+// `--gauzy-card-2` — the tab surface, and the obvious pick for a backdrop — is
+// translucent in EVERY theme (alpha 0.02 in gauzy-light, 0.3 in gauzy-dark, 0.5
+// in corporate; see `themes.scss`), so a pager painted with it still shows the
+// table rows through itself. That is invisible while the pager sits below a
+// clipped table and unmissable once it is sticky over a scrolling one.
+//
+// `--gauzy-card-1` is the one card token that is opaque in all of them (an alias
+// of `card-background-color`, or an explicit alpha-1 rgba), and it is already
+// what `ga-hub.surface()` paints the table with — so the pager reads as the foot
+// of the same block rather than a second surface.
+:host .pagination-container {
+  background: var(--gauzy-card-1, var(--background-basic-color-1));
+  border-radius: 0 0 var(--border-radius, 0.5rem) var(--border-radius, 0.5rem);
+  // Covers the 0.25rem `pager-container()` spends on a transparent `margin-top`,
+  // which is a gap the rows would otherwise scroll through underneath.
+  margin-top: 0;
+  padding: 0.375rem 0.5rem;
+}
+
+// ── Search form: controls sized to their content ─────────────────────────────
+// The fields are laid out on a Bootstrap grid (`col-sm-4` / `-3` / `-2`) and every
+// control carries `fullWidth`, so each one stretched to a third or a quarter of
+// the card — a number field nearly 500px wide for a 6-digit estimate number.
+// Capping the COLUMN rather than the control keeps the grid's wrapping and order
+// intact (the cap only bites where the percentage is the larger of the two) and
+// carries the label above the field with it.
+:host .search-tab nb-accordion .row > [class*='col-'] {
+  max-width: 14rem;
+}
