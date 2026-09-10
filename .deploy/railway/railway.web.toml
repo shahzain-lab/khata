@@ -12,8 +12,8 @@ DEMO = "false"
 NODE_OPTIONS = "--max-old-space-size=8192"
 
 [deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 120
+healthcheckPath = "/healthz"
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 # Railway injects PORT; entrypoint maps it to nginx listen port
