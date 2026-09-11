@@ -34,11 +34,13 @@ if [ -n "${DATABASE_URL}" ]; then
 	_port="${_hostport#*:}"
 	[ "${_port}" = "${_host}" ] && _port="5432"
 
-	export DB_USER="${DB_USER:-${_user}}"
-	export DB_PASS="${DB_PASS:-${_pass}}"
-	export DB_HOST="${DB_HOST:-${_host}}"
-	export DB_PORT="${DB_PORT:-${_port}}"
-	export DB_NAME="${DB_NAME:-${_db}}"
+	# Always apply DATABASE_URL components. The API image bakes DB_HOST=db (compose),
+	# which would otherwise win over ${DB_HOST:-...} and break Railway (ENOTFOUND db).
+	export DB_USER="${_user}"
+	export DB_PASS="${_pass}"
+	export DB_HOST="${_host}"
+	export DB_PORT="${_port}"
+	export DB_NAME="${_db}"
 fi
 
 # Railway Postgres usually requires SSL
