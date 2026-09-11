@@ -106,6 +106,13 @@ export class ExpensesMutationComponent extends TranslationBaseComponent implemen
 				distinctUntilChange(),
 				filter((organization: IOrganization) => !!organization),
 				tap((organization: IOrganization) => (this.organization = organization)),
+				tap((organization: IOrganization) => {
+					// Default currency from org so Save is not silently blocked by Validators.required
+					if (!this.form.get('currency')?.value && organization.currency) {
+						this.form.get('currency').setValue(organization.currency);
+						this.form.get('currency').updateValueAndValidity();
+					}
+				}),
 				tap(() => {
 					const typeOfExpense = <FormControl>this.form.get('typeOfExpense');
 					this.setExpenseStatuses(typeOfExpense.value);

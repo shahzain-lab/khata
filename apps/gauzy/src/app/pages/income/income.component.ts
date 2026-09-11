@@ -350,7 +350,7 @@ export class IncomeComponent extends PaginationFilterBaseComponent implements Af
 					// Create a new income using the service
 					await this.incomeService.create({
 						amount,
-						clientId: organizationContact.id,
+						clientId: organizationContact?.id ?? null,
 						valueDate: moment(valueDate).startOf('day').toDate(),
 						employeeId: employee ? employee.id : null,
 						organizationId,
@@ -477,7 +477,7 @@ export class IncomeComponent extends PaginationFilterBaseComponent implements Af
 					// Update the income using the service
 					await this.incomeService.update(this.selectedIncome.id, {
 						amount,
-						clientId: organizationContact.id,
+						clientId: organizationContact?.id ?? null,
 						valueDate: moment(valueDate).startOf('day').toDate(),
 						notes,
 						currency,

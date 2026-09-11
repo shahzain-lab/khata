@@ -5,10 +5,10 @@ import { TenantOrganizationBaseDTO } from "./../../core/dto";
 
 export class IncomeDTO extends TenantOrganizationBaseDTO {
 
-	@ApiProperty({ type: () => String, readOnly: true })
-    @IsNotEmpty()
-    @IsString()
-    readonly clientId: string;
+	@ApiPropertyOptional({ type: () => String, readOnly: true })
+	@IsOptional()
+	@IsString()
+	readonly clientId: string;
 
 	@ApiProperty({ type: () => Number, readOnly: true })
 	@IsNotEmpty()
