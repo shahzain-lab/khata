@@ -8,8 +8,11 @@ if [ -n "${PORT}" ]; then
 	export API_PORT="${PORT}"
 fi
 export API_PORT="${API_PORT:-3000}"
-# Bind all interfaces so the platform healthcheck can reach the process.
-export API_HOST="${API_HOST:-0.0.0.0}"
+
+# ALWAYS bind all interfaces for the HTTP listen address.
+# Do not reuse a public hostname set as API_HOST (that var is for the *web* service
+# JS bundle). Listening on "xxx.up.railway.app" makes the process crash / unreachable.
+export API_HOST="0.0.0.0"
 
 # Prefer postgres in cloud; local Docker images may still default to sqlite.
 export DB_TYPE="${DB_TYPE:-postgres}"
@@ -45,6 +48,34 @@ if [ -z "${DB_SSL_MODE}" ] && [ -n "${DATABASE_URL}" ]; then
 	esac
 fi
 
-echo "Khata API starting on ${API_HOST}:${API_PORT} (DB_TYPE=${DB_TYPE} DEMO=${DEMO})"
+# Fail fast with a clear message instead of Nest crash-looping every few seconds.
+# Production (non-demo) refuses default/empty JWT secrets — see validate-secrets.ts.
+if [ "${NODE_ENV}" = "production" ] && [ "${DEMO}" != "true" ] && [ "${ALLOW_INSECURE_JWT_SECRET}" != "true" ]; then
+	_missing=""
+	if [ -z "${JWT_SECRET}" ] || [ "${JWT_SECRET}" = "secretKey" ]; then
+		_missing="${_missing} JWT_SECRET"
+	fi
+	if [ -z "${JWT_REFRESH_TOKEN_SECRET}" ] || [ "${JWT_REFRESH_TOKEN_SECRET}" = "refreshSecretKey" ]; then
+		_missing="${_missing} JWT_REFRESH_TOKEN_SECRET"
+	fi
+	if [ -z "${JWT_VERIFICATION_TOKEN_SECRET}" ] || [ "${JWT_VERIFICATION_TOKEN_SECRET}" = "verificationSecretKey" ]; then
+		_missing="${_missing} JWT_VERIFICATION_TOKEN_SECRET"
+	fi
+	if [ -z "${EXPRESS_SESSION_SECRET}" ] || [ "${EXPRESS_SESSION_SECRET}" = "gauzy" ]; then
+		_missing="${_missing} EXPRESS_SESSION_SECRET"
+	fi
+	if [ -n "$_missing" ]; then
+		echo "ERROR: Refusing to start — set strong secrets on the API service:$_missing" >&2
+		echo "Generate with: openssl rand -hex 64" >&2
+		echo "Empty/default secrets cause Railway crash loops (healthcheck fails)." >&2
+		exit 1
+	fi
+fi
+
+if [ -z "${DATABASE_URL}" ] && [ -z "${DB_HOST}" ]; then
+	echo "WARNING: DATABASE_URL / DB_HOST not set — API will likely fail to connect to Postgres." >&2
+fi
+
+echo "Khata API starting on ${API_HOST}:${API_PORT} (DB_TYPE=${DB_TYPE} DEMO=${DEMO} DB_HOST=${DB_HOST:-unset})"
 
 exec "$@"

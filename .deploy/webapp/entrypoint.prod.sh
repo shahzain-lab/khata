@@ -3,11 +3,12 @@ set -e
 
 # Entrypoint for UI outside Docker Compose (k8s / Railway / Fly / etc.)
 
-# Railway injects PORT — nginx must listen on it.
+# Railway injects PORT at runtime. Default 8080 so a missing PORT still matches
+# common PaaS expectations (never leave nginx on baked-in WEB_PORT=4200 only).
 if [ -n "${PORT}" ]; then
 	export WEB_PORT="${PORT}"
 else
-	export PORT="${WEB_PORT:-4200}"
+	export PORT="${PORT:-8080}"
 	export WEB_PORT="${PORT}"
 fi
 
@@ -25,29 +26,34 @@ export API_PORT="${API_PORT:-3000}"
 
 echo "Khata UI starting (PORT=${PORT} API_BASE_URL=${API_BASE_URL})"
 
-# Use envsubst to create the actual replacements_values.sed file with values from env vars
-envsubst < replacements.sed > replacements_values.sed
-
-# Only rewrite bundles that still contain Docker placeholders (fast path for Railway healthchecks)
-js_targets=$(grep -l 'DOCKER_' ./*.js 2>/dev/null || true)
-if [ -n "$js_targets" ]; then
-	# shellcheck disable=SC2086
-	sed -i -f replacements_values.sed $js_targets
-else
-	echo "No DOCKER_ placeholders found in JS bundles; skipping sed"
-fi
-
-# Substitute PORT into nginx config (Railway requires listening on $PORT)
+# --- Bring nginx up FIRST so Railway healthchecks can pass during JS rewrite ---
 envsubst '${PORT} ${WEB_PORT}' < /etc/nginx/conf.d/prod.conf.template > /etc/nginx/nginx.conf
-
-# Drop default site so it cannot steal the port
 rm -f /etc/nginx/conf.d/default.conf
 
 echo "nginx listen config:"
 grep -n "listen" /etc/nginx/nginx.conf || true
 
 nginx -t
+# Start in background so /healthz answers while we rewrite DOCKER_* placeholders
+nginx
+echo "Khata UI nginx ready on 0.0.0.0:${PORT} (rewriting bundles next)"
 
-echo "Khata UI nginx ready on 0.0.0.0:${PORT}"
+# Use envsubst to create the actual replacements_values.sed file with values from env vars
+envsubst < replacements.sed > replacements_values.sed
+
+# Only rewrite bundles that still contain Docker placeholders
+js_targets=$(grep -l 'DOCKER_' ./*.js 2>/dev/null || true)
+if [ -n "$js_targets" ]; then
+	# shellcheck disable=SC2086
+	sed -i -f replacements_values.sed $js_targets
+	echo "Bundle placeholders rewritten"
+else
+	echo "No DOCKER_ placeholders found in JS bundles; skipping sed"
+fi
+
+# Foreground nginx as PID 1 (stop background master first)
+nginx -s quit || true
+# Give the previous master a moment to release the port
+sleep 1
 
 exec "$@"

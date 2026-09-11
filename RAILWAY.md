@@ -26,11 +26,17 @@ Workspaces after seed: **PipBattle** (default) and **SAAZ**. Login: `admin@ever.
 
 - Builder: **Dockerfile**
 - Dockerfile path: `.deploy/api/Dockerfile`
-- (Optional) copy `.deploy/railway/railway.api.toml` → service root as `railway.toml`
+- **Config-as-code → Config File Path:** `.deploy/railway/railway.api.toml`  
+  (or copy that file to the service as `railway.toml`)
 
 **Settings → Networking**
 
-- Generate a public domain (e.g. `khata-api-production.up.railway.app`)
+- Generate a public domain (e.g. `khata-api-production.up.railway.app`) — this is what makes Railway inject `PORT`.
+
+**Settings → Healthcheck** (if not using config-as-code)
+
+- Path: `/api/health/live` (liveness only — **not** `/api/health`, which also checks DB and can fail early)
+- Timeout: `300`
 
 **Variables** (Variables tab) — see `.env.railway.example`
 
@@ -48,6 +54,7 @@ API_BASE_URL=https://<your-api-domain>
 CLIENT_BASE_URL=https://<your-web-domain>
 ALLOWED_ORIGINS=https://<your-web-domain>
 
+# REQUIRED — empty values = crash loop every few seconds
 JWT_SECRET=<openssl rand -hex 64>
 JWT_REFRESH_TOKEN_SECRET=<openssl rand -hex 64>
 JWT_VERIFICATION_TOKEN_SECRET=<openssl rand -hex 64>
@@ -56,10 +63,9 @@ EXPRESS_SESSION_SECRET=<openssl rand -hex 64>
 
 Notes:
 
-- Do **not** set `PORT` yourself — Railway injects it; `.deploy/api/entrypoint.prod.sh` maps `PORT` → `API_PORT` and binds `0.0.0.0`.
-- `DATABASE_URL` is parsed into `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_NAME` / `DB_PORT` automatically when those are unset.
-
-**Healthcheck:** `/api` (already in `railway.api.toml`)
+- Do **not** set `PORT` yourself — Railway injects it; entrypoint maps `PORT` → `API_PORT` and **always** binds `0.0.0.0`.
+- Do **not** set `API_HOST` on the API service to your public hostname (that belongs on **web** only).
+- `DATABASE_URL` is parsed into `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_NAME` / `DB_PORT` when those are unset.
 
 ---
 
@@ -68,9 +74,15 @@ Notes:
 **Settings → Build**
 
 - Dockerfile path: `.deploy/webapp/Dockerfile`
-- Optional: `.deploy/railway/railway.web.toml` → `railway.toml`
+- **Config-as-code → Config File Path:** `.deploy/railway/railway.web.toml`
 
-**Networking:** public domain for the UI
+**Networking:** generate a public domain for the UI (required so Railway injects `PORT`).
+
+**Settings → Healthcheck** (if not using config-as-code)
+
+- Path: `/healthz` (not `/`)
+- Timeout: `300`
+- Do **not** add a manual `PORT=80` unless nginx is actually listening on 80 — the image binds to Railway’s injected `PORT` (default image fallback `8080`).
 
 **Variables:**
 
@@ -78,13 +90,13 @@ Notes:
 DEMO=false
 API_BASE_URL=https://<your-api-domain>
 CLIENT_BASE_URL=https://<your-web-domain>
-API_HOST=<your-api-domain>
+API_HOST=<your-api-domain-without-https>
 API_PORT=443
 COMPANY_SITE_NAME=Khata
 COMPANY_NAME=Khata
 ```
 
-The UI image substitutes these into the Angular bundle at container start (`entrypoint.prod.sh` + `replacements.sed`). Nginx listens on Railway’s `PORT`.
+The UI image starts **nginx immediately** (so `/healthz` passes), then substitutes env into the Angular bundles (`entrypoint.prod.sh` + `replacements.sed`).
 
 ---
 
@@ -159,7 +171,10 @@ Local builds need Docker BuildKit (`DOCKER_BUILDKIT=1`).
 
 | Symptom | Fix |
 |--------|-----|
-| API healthcheck fails | Ensure entrypoint is used; check logs for DB SSL / connection errors; set `DB_SSL_MODE=true` |
+| Web: `PORT` / healthcheck `/` → service unavailable | Set config file to `.deploy/railway/railway.web.toml`, healthcheck **`/healthz`**, generate a **public domain**, redeploy latest `main` (nginx starts before JS rewrite) |
+| API restarts every few seconds | Deploy logs almost always show missing JWT secrets — set all four secrets from `.env.railway.example` |
+| API healthcheck `/api/health` fails | Switch healthcheck to **`/api/health/live`**; `/api/health` also probes DB/disk/cache |
+| API healthcheck fails (other) | Check logs for DB SSL / `DATABASE_URL`; set `DB_SSL_MODE=true`; do not set `API_HOST` on API |
 | UI calls wrong API | Set `API_BASE_URL` on **web** to the public API HTTPS URL and redeploy web |
 | CORS errors | Set `ALLOWED_ORIGINS` on **api** to the exact web origin (https, no trailing slash) |
 | Empty orgs / login fails | Run seed (section 5) |

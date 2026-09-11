@@ -217,6 +217,9 @@ FROM nginx:alpine AS production
 
 WORKDIR /srv/gauzy
 
+# gettext provides envsubst (required by entrypoint.prod.sh)
+RUN apk add --no-cache gettext
+
 COPY --chown=nginx:nginx --from=dependencies /wait /entrypoint.compose.sh /entrypoint.prod.sh /replacements.sed ./
 COPY --chown=nginx:nginx .deploy/webapp/nginx.compose.conf /etc/nginx/conf.d/compose.conf.template
 COPY --chown=nginx:nginx .deploy/webapp/nginx.prod.conf /etc/nginx/conf.d/prod.conf.template
@@ -244,7 +247,9 @@ ENV API_PORT=3000
 ENV API_BASE_URL=http://localhost:3000
 ENV CLIENT_BASE_URL=http://localhost:4200
 ENV WEB_HOST=0.0.0.0
-ENV WEB_PORT=4200
+# Railway injects PORT at runtime; default 8080 so healthchecks never target stale 4200.
+ENV PORT=8080
+ENV WEB_PORT=8080
 ENV DEMO=false
 
 ENV POSTHOG_ENABLED=false

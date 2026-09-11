@@ -1,6 +1,9 @@
-# Copy into the Railway *web* service as railway.toml (or set these in the dashboard).
+# Copy into the Railway *web* service as railway.toml, OR set:
+#   Settings → Config-as-code → Config File Path = .deploy/railway/railway.web.toml
+#
 # Dashboard → Service → Settings → Build:
 #   Dockerfile path = .deploy/webapp/Dockerfile
+# Networking: generate a public domain (Railway then injects PORT).
 
 [build]
 builder = "DOCKERFILE"
@@ -12,8 +15,9 @@ DEMO = "false"
 NODE_OPTIONS = "--max-old-space-size=8192"
 
 [deploy]
+# Lightweight nginx probe — available immediately (before JS placeholder rewrite finishes)
 healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
-# Railway injects PORT; entrypoint maps it to nginx listen port
+# Do NOT set PORT yourself — Railway injects it; entrypoint binds nginx to $PORT (default 8080).

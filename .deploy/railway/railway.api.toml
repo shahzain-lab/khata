@@ -1,6 +1,9 @@
-# Copy into the Railway *api* service as railway.toml (or set these in the dashboard).
+# Copy into the Railway *api* service as railway.toml, OR set:
+#   Settings → Config-as-code → Config File Path = .deploy/railway/railway.api.toml
+#
 # Dashboard → Service → Settings → Build:
 #   Dockerfile path = .deploy/api/Dockerfile
+# Networking: generate a public domain (Railway then injects PORT).
 
 [build]
 builder = "DOCKERFILE"
@@ -12,8 +15,10 @@ DEMO = "false"
 NODE_OPTIONS = "--max-old-space-size=8192"
 
 [deploy]
-healthcheckPath = "/api"
+# Liveness only — /api/health also checks DB/disk/cache and can fail before the app is "ready"
+healthcheckPath = "/api/health/live"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
-# Railway injects PORT; entrypoint maps it to API_PORT
+# Do NOT set PORT or API_HOST (public hostname) on this service.
+# Entrypoint maps Railway PORT → API_PORT and always binds 0.0.0.0.
